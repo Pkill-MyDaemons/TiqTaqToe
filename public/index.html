@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Tic Tac Toe</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --bg: #04050f;
+  --panel: #080c1a;
+  --border: #1a2040;
+  --x: #ff3860;
+  --o: #00e5ff;
+  --dim-x: rgba(255,56,96,0.15);
+  --dim-o: rgba(0,229,255,0.15);
+  --text: #c8d0e8;
+  --muted: #4a5070;
+  --gold: #ffd700;
+  --green: #00ff88;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 48px;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(26,32,64,0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26,32,64,0.22) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none;
+  z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.055) 2px, rgba(0,0,0,0.055) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.wrapper {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+/* ── LOGO ──────────────────────────────────────────────────────────── */
+.logo { text-align: center; margin-bottom: 2px; }
+.logo h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(18px, 5vw, 30px);
+  letter-spacing: 0.08em;
+  background: linear-gradient(130deg, var(--o) 0%, var(--x) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 16px rgba(0,229,255,0.22));
+}
+.logo p { font-size: 10px; color: var(--muted); letter-spacing: 0.22em; margin-top: 4px; text-transform: uppercase; }
+
+/* ── SCREENS ───────────────────────────────────────────────────────── */
+.screen { width: 100%; display: none; flex-direction: column; align-items: center; gap: 15px; }
+.screen.active { display: flex; }
+
+/* ── CARD ──────────────────────────────────────────────────────────── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 18px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── BUTTONS ───────────────────────────────────────────────────────── */
+.btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  padding: 13px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.14s;
+  width: 100%;
+}
+.btn-o {
+  background: rgba(0,229,255,0.07);
+  border: 1px solid var(--o);
+  color: var(--o);
+  box-shadow: 0 0 12px rgba(0,229,255,0.12);
+}
+.btn-o:hover:not(:disabled) {
+  background: rgba(0,229,255,0.16);
+  box-shadow: 0 0 26px rgba(0,229,255,0.32);
+  transform: translateY(-1px);
+}
+.btn-x {
+  background: rgba(255,56,96,0.07);
+  border: 1px solid var(--x);
+  color: var(--x);
+  box-shadow: 0 0 12px rgba(255,56,96,0.12);
+}
+.btn-x:hover:not(:disabled) {
+  background: rgba(255,56,96,0.16);
+  box-shadow: 0 0 26px rgba(255,56,96,0.32);
+  transform: translateY(-1px);
+}
+.btn-gold {
+  background: rgba(255,215,0,0.07);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+}
+.btn-gold:hover:not(:disabled) {
+  background: rgba(255,215,0,0.16);
+  box-shadow: 0 0 26px rgba(255,215,0,0.28);
+  transform: translateY(-1px);
+}
+.btn:disabled { opacity: 0.32; cursor: not-allowed; transform: none !important; }
+.btn-row { display: flex; gap: 10px; width: 100%; }
+.btn-sm {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.14s;
+  flex-shrink: 0;
+}
+.btn-sm:hover { border-color: var(--text); color: var(--text); }
+
+/* ── INPUT ─────────────────────────────────────────────────────────── */
+.inp-group { display: flex; flex-direction: column; gap: 7px; }
+.inp-group label { font-size: 10px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; }
+input[type="text"] {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.38em;
+  padding: 14px 16px;
+  width: 100%;
+  text-align: center;
+  text-transform: uppercase;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+input[type="text"]:focus { border-color: var(--o); box-shadow: 0 0 16px rgba(0,229,255,0.1); }
+input::placeholder { color: var(--muted); font-size: 14px; letter-spacing: 0.2em; }
+
+/* ── BADGE ─────────────────────────────────────────────────────────── */
+.badge {
+  width: 100%;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-align: center;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  transition: all 0.28s;
+}
+.badge.ok  { border-color: var(--green); color: var(--green); }
+.badge.wait{ border-color: var(--gold);  color: var(--gold);  animation: blink 2s ease-in-out infinite; }
+.badge.err { border-color: var(--x);    color: var(--x); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.42} }
+
+/* ── ROOM CODE DISPLAY ─────────────────────────────────────────────── */
+.code-box {
+  background: var(--panel);
+  border: 2px solid var(--o);
+  border-radius: 14px;
+  padding: 22px 28px;
+  text-align: center;
+  width: 100%;
+  box-shadow: 0 0 32px rgba(0,229,255,0.07);
+}
+.code-box .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.28em; text-transform: uppercase; margin-bottom: 8px; }
+.code-box .code {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(30px, 10vw, 50px);
+  font-weight: 900;
+  color: var(--o);
+  letter-spacing: 0.36em;
+  text-shadow: 0 0 30px rgba(0,229,255,0.48);
+}
+.code-box .hint { font-size: 10px; color: var(--muted); margin-top: 8px; letter-spacing: 0.1em; }
+
+/* ── PLAYER SLOTS ──────────────────────────────────────────────────── */
+.slots { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.slot {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.015);
+}
+.slot.sx { border-color: rgba(255,56,96,0.28); background: var(--dim-x); }
+.slot.so { border-color: rgba(0,229,255,0.28); background: var(--dim-o); }
+.slot .sym { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 900; width: 32px; text-align: center; }
+.slot.sx .sym { color: var(--x); }
+.slot.so .sym { color: var(--o); }
+.slot .sname { font-size: 12px; flex: 1; }
+.stag { font-size: 9px; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.1em; text-transform: uppercase; }
+.stag-you   { background: rgba(255,215,0,0.1);  color: var(--gold);  border: 1px solid rgba(255,215,0,0.28); }
+.stag-wait  { color: var(--muted); }
+.stag-ready { background: rgba(0,255,136,0.08); color: var(--green); border: 1px solid rgba(0,255,136,0.22); }
+
+/* ── GAME HEADER ───────────────────────────────────────────────────── */
+.g-header { width: 100%; display: flex; align-items: center; gap: 10px; }
+.p-info {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: border-color 0.28s, box-shadow 0.28s;
+}
+.p-info.xi { border-color: rgba(255,56,96,0.22); }
+.p-info.oi { border-color: rgba(0,229,255,0.22); }
+.p-info.ax { border-color: var(--x); box-shadow: 0 0 16px rgba(255,56,96,0.22); }
+.p-info.ao { border-color: var(--o); box-shadow: 0 0 16px rgba(0,229,255,0.22); }
+.p-sym { font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; }
+.xi .p-sym { color: var(--x); }
+.oi .p-sym { color: var(--o); }
+.p-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ax .p-name, .ao .p-name { color: var(--text); }
+.turn-mid {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px; color: var(--muted);
+  text-align: center; flex-shrink: 0; width: 52px; line-height: 1.4;
+}
+#turnNum { font-size: 22px; font-weight: 700; color: var(--text); display: block; margin-top: 2px; }
+
+/* ── BOARD ─────────────────────────────────────────────────────────── */
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
+  max-width: 460px;
+}
+.cell {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+  transition: border-color 0.14s, background 0.14s, box-shadow 0.14s;
+  overflow: hidden; flex-direction: column;
+}
+.cell:hover:not(.no-click) { background: rgba(255,255,255,0.035); border-color: rgba(255,255,255,0.14); }
+.cell.no-click { cursor: default; }
+.cell.sel-x { border-color: var(--x) !important; box-shadow: 0 0 16px rgba(255,56,96,0.32) !important; }
+.cell.sel-o { border-color: var(--o) !important; box-shadow: 0 0 16px rgba(0,229,255,0.32) !important; }
+.cell.cls-x { background: rgba(255,56,96,0.09); border-color: var(--x); box-shadow: 0 0 12px rgba(255,56,96,0.16); }
+.cell.cls-o { background: rgba(0,229,255,0.09); border-color: var(--o); box-shadow: 0 0 12px rgba(0,229,255,0.16); }
+.cell.collapse-target {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 22px rgba(255,215,0,0.32) !important;
+  animation: tpulse 1s ease-in-out infinite;
+  cursor: pointer !important;
+}
+@keyframes tpulse { 0%,100%{box-shadow:0 0 22px rgba(255,215,0,0.32)} 50%{box-shadow:0 0 42px rgba(255,215,0,0.62)} }
+.cell.win-cell { animation: wpulse 1.1s ease-in-out infinite; }
+@keyframes wpulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.055)} }
+
+/* Classical mark */
+.cls-sym {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(26px, 7vw, 48px);
+  line-height: 1;
+}
+.cls-sym.sx { color: var(--x); text-shadow: 0 0 20px rgba(255,56,96,0.48); }
+.cls-sym.so { color: var(--o); text-shadow: 0 0 20px rgba(0,229,255,0.48); }
+
+/* Superposition marks */
+.sup-wrap {
+  display: flex; flex-wrap: wrap;
+  align-items: center; justify-content: center;
+  gap: 3px; padding: 5px; width: 100%; height: 100%;
+}
+.qm {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: clamp(7px, 1.7vw, 11px);
+  line-height: 1; padding: 2px 4px; border-radius: 3px;
+}
+.qmx { color: var(--x); background: rgba(255,56,96,0.14); border: 1px solid rgba(255,56,96,0.28); }
+.qmo { color: var(--o); background: rgba(0,229,255,0.14); border: 1px solid rgba(0,229,255,0.28); }
+
+/* ── STATUS LOG ────────────────────────────────────────────────────── */
+.log {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 13px 16px;
+  width: 100%;
+  font-size: 12px; color: var(--text);
+  min-height: 46px; line-height: 1.6; letter-spacing: 0.04em;
+}
+.hi { color: var(--o); font-weight: 700; }
+.da { color: var(--x); }
+.go { color: var(--gold); }
+.gr { color: var(--green); }
+
+/* ── COLLAPSE PROMPT ───────────────────────────────────────────────── */
+.collapse-box {
+  background: var(--panel);
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 13px 18px;
+  width: 100%; text-align: center;
+  box-shadow: 0 0 26px rgba(255,215,0,0.09);
+}
+.collapse-box h3 { font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 0.18em; color: var(--gold); margin-bottom: 7px; }
+.collapse-box p { font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+/* ── WIN OVERLAY ───────────────────────────────────────────────────── */
+.win-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(4,5,15,0.88); z-index: 200;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(6px);
+}
+.win-overlay.show { display: flex; }
+.win-card {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 38px 42px; text-align: center;
+  max-width: 310px; width: 90%;
+  display: flex; flex-direction: column; gap: 13px;
+  animation: popin 0.36s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes popin { from{transform:scale(0.55);opacity:0} to{transform:scale(1);opacity:1} }
+.win-sym { font-family: 'Orbitron', sans-serif; font-size: 68px; font-weight: 900; line-height: 1; }
+.wc-x .win-sym { color: var(--x); text-shadow: 0 0 38px rgba(255,56,96,0.76); }
+.wc-o .win-sym { color: var(--o); text-shadow: 0 0 38px rgba(0,229,255,0.76); }
+.wc-d .win-sym { color: var(--gold); font-size: 50px; }
+.win-card h2 { font-family: 'Orbitron', sans-serif; font-size: 16px; letter-spacing: 0.08em; }
+.wc-x h2 { color: var(--x); }
+.wc-o h2 { color: var(--o); }
+.wc-d h2 { color: var(--gold); }
+.win-card p { font-size: 11px; color: var(--muted); }
+
+/* ── RULES ─────────────────────────────────────────────────────────── */
+.rules {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px; width: 100%;
+  font-size: 11px; color: var(--muted); line-height: 1.88;
+}
+.rules strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<!-- WIN OVERLAY -->
+<div class="win-overlay" id="winOverlay">
+  <div class="win-card" id="winCard">
+    <div class="win-sym" id="winSym"></div>
+    <h2 id="winTitle"></h2>
+    <p id="winSub"></p>
+    <button class="btn btn-gold" onclick="sendReset()">PLAY AGAIN</button>
+    <button class="btn-sm" style="margin-top:2px;width:100%;text-align:center" onclick="goLobby()">LEAVE ROOM</button>
+  </div>
+</div>
+
+<div class="wrapper">
+  <div class="logo">
+    <h1>⟨ QUANTUM TTT ⟩</h1>
+    <p>superposition · entanglement · collapse</p>
+  </div>
+
+  <!-- ── LOBBY ──────────────────────────────────────────────── -->
+  <div class="screen active" id="lobbyScreen">
+    <div class="card">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+        <button class="btn btn-o" onclick="doHost()">⚛ HOST ROOM</button>
+        <button class="btn btn-x" onclick="showJoin()">⊕ JOIN ROOM</button>
+      </div>
+      <div id="joinArea" style="display:none;flex-direction:column;gap:10px">
+        <hr style="border:none;border-top:1px solid var(--border)">
+        <div class="inp-group">
+          <label>Room Code</label>
+          <input type="text" id="codeInput" placeholder="XXXXXX" maxlength="6"
+            oninput="this.value=this.value.toUpperCase()"
+            onkeydown="if(event.key==='Enter')doJoin()">
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-x" onclick="doJoin()">CONNECT</button>
+          <button class="btn-sm" onclick="hideJoin()">CANCEL</button>
+        </div>
+      </div>
+    </div>
+    <div class="badge" id="lobbyBadge">READY TO PLAY</div>
+    <div class="rules">
+      <strong>QUANTUM TIC TAC TOE</strong><br>
+      Each turn: place your mark in <strong>two cells</strong> as a superposition (shown as X₁, O₂…).<br>
+      When entanglements form a <strong>cycle</strong>, the player who didn't create it chooses which cell collapses.<br>
+      Win with <strong>three classical marks</strong> in a row after collapse.
+    </div>
+  </div>
+
+  <!-- ── WAITING ────────────────────────────────────────────── -->
+  <div class="screen" id="waitScreen">
+    <div class="code-box">
+      <div class="lbl">ROOM CODE</div>
+      <div class="code" id="waitCode">------</div>
+      <div class="hint">Share this code with your opponent</div>
+    </div>
+    <div class="slots">
+      <div class="slot sx">
+        <div class="sym">X</div>
+        <div class="sname" id="slotXName">Host</div>
+        <div class="stag stag-you" id="slotXTag">YOU</div>
+      </div>
+      <div class="slot so">
+        <div class="sym">O</div>
+        <div class="sname" id="slotOName">Waiting for player…</div>
+        <div class="stag stag-wait" id="slotOTag">⟳ WAITING</div>
+      </div>
+    </div>
+    <div class="badge wait" id="waitBadge">⟳ WAITING FOR OPPONENT</div>
+    <div id="startBtnWrap" style="display:none;width:100%">
+      <button class="btn btn-gold" onclick="doStart()">▶ START GAME</button>
+    </div>
+    <button class="btn-sm" onclick="goLobby()">CANCEL</button>
+  </div>
+
+  <!-- ── GAME ───────────────────────────────────────────────── -->
+  <div class="screen" id="gameScreen">
+    <div class="g-header">
+      <div class="p-info xi" id="xInfo">
+        <div class="p-sym">PLAYER X</div>
+        <div class="p-name" id="xNameEl">—</div>
+      </div>
+      <div class="turn-mid">TURN<span id="turnNum">1</span></div>
+      <div class="p-info oi" id="oInfo">
+        <div class="p-sym">PLAYER O</div>
+        <div class="p-name" id="oNameEl">—</div>
+      </div>
+    </div>
+
+    <div class="board" id="board"></div>
+
+    <div class="collapse-box" id="collapseBox" style="display:none">
+      <h3>⚡ COLLAPSE REQUIRED</h3>
+      <p id="collapseMsg"></p>
+    </div>
+
+    <div class="log" id="log">Initializing…</div>
+    <button class="btn-sm" onclick="goLobby()">LEAVE</button>
+  </div>
+</div>
+
+<script>
+// ─── WebSocket — auto wss:// on https, ws:// on http ──────────────────
+const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+
+let ws = null;
+let mySymbol = null;
+let isHost = false;
+let gs = null;
+let pendingCells = [];
+
+function connect(onOpen) {
+  if (ws) { ws.onclose = null; try { ws.close(); } catch(e){} }
+  ws = new WebSocket(WS_URL);
+  ws.onopen = onOpen;
+  ws.onmessage = e => handle(JSON.parse(e.data));
+  ws.onerror = () => setBadge('lobbyBadge', 'Cannot reach server — is it running?', 'err');
+  ws.onclose = () => {
+    if (gs && !gs.winner) setLog('<span class="da">⚠ Connection lost.</span>');
+  };
+}
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+
+// ─── Message handler ──────────────────────────────────────────────────
+function handle(msg) {
+  switch (msg.type) {
+
+    case 'room_created':
+      isHost = true; mySymbol = 'X';
+      document.getElementById('waitCode').textContent = msg.code;
+      document.getElementById('slotXTag').textContent = 'YOU';
+      document.getElementById('slotXTag').className = 'stag stag-you';
+      document.getElementById('slotOTag').textContent = '⟳ WAITING';
+      document.getElementById('slotOTag').className = 'stag stag-wait';
+      setBadge('waitBadge', '⟳ WAITING FOR OPPONENT', 'wait');
+      document.getElementById('startBtnWrap').style.display = 'none';
+      showScreen('waitScreen');
+      break;
+
+    case 'joined':
+      isHost = false; mySymbol = 'O';
+      document.getElementById('waitCode').textContent = msg.code;
+      document.getElementById('slotXName').textContent = 'Host';
+      document.getElementById('slotXTag').textContent = '⟳ HOST';
+      document.getElementById('slotXTag').className = 'stag stag-wait';
+      document.getElementById('slotOName').textContent = 'You';
+      document.getElementById('slotOTag').textContent = 'YOU';
+      document.getElementById('slotOTag').className = 'stag stag-you';
+      setBadge('waitBadge', '✓ CONNECTED — WAITING FOR HOST TO START', 'ok');
+      document.getElementById('startBtnWrap').style.display = 'none';
+      showScreen('waitScreen');
+      break;
+
+    case 'guest_joined':
+      document.getElementById('slotOName').textContent = 'Opponent';
+      document.getElementById('slotOTag').textContent = '✓ READY';
+      document.getElementById('slotOTag').className = 'stag stag-ready';
+      setBadge('waitBadge', '✓ OPPONENT JOINED — PRESS START', 'ok');
+      document.getElementById('startBtnWrap').style.display = 'block';
+      break;
+
+    case 'start':
+      gs = msg.state;
+      mySymbol = msg.symbol;
+      pendingCells = [];
+      document.getElementById('winOverlay').classList.remove('show');
+      document.getElementById('collapseBox').style.display = 'none';
+      showScreen('gameScreen');
+      renderAll();
+      break;
+
+    case 'state':
+      gs = msg.state;
+      pendingCells = [];
+      if (msg.event === 'reset') document.getElementById('winOverlay').classList.remove('show');
+      document.getElementById('collapseBox').style.display = 'none';
+      renderAll();
+      if (gs.winner) setTimeout(() => showWin(gs.winner), 480);
+      break;
+
+    case 'opponent_left':
+      setLog('<span class="da">⚠ Opponent disconnected.</span>');
+      break;
+
+    case 'error':
+      setBadge('lobbyBadge', msg.msg, 'err');
+      break;
+  }
+}
+
+// ─── Lobby ────────────────────────────────────────────────────────────
+function doHost() {
+  setBadge('lobbyBadge', 'Connecting…', 'wait');
+  connect(() => send({ type: 'host' }));
+}
+function showJoin() {
+  document.getElementById('joinArea').style.display = 'flex';
+  document.getElementById('codeInput').focus();
+}
+function hideJoin() {
+  document.getElementById('joinArea').style.display = 'none';
+  document.getElementById('codeInput').value = '';
+}
+function doJoin() {
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if (code.length < 4) { setBadge('lobbyBadge', 'Enter a valid code', 'err'); return; }
+  setBadge('lobbyBadge', 'Connecting…', 'wait');
+  connect(() => send({ type: 'join', code }));
+}
+function doStart() { send({ type: 'start' }); }
+
+// ─── Render ───────────────────────────────────────────────────────────
+function renderAll() {
+  if (!gs) return;
+  // Headers
+  const xActive = gs.currentTurn === 'X' && gs.phase === 'placing' && !gs.winner;
+  const oActive = gs.currentTurn === 'O' && gs.phase === 'placing' && !gs.winner;
+  document.getElementById('xInfo').className = 'p-info xi' + (xActive ? ' ax' : '');
+  document.getElementById('oInfo').className = 'p-info oi' + (oActive ? ' ao' : '');
+  document.getElementById('turnNum').textContent = gs.moveNum;
+  document.getElementById('xNameEl').textContent = mySymbol === 'X' ? 'You' : 'Opponent';
+  document.getElementById('oNameEl').textContent = mySymbol === 'O' ? 'You' : 'Opponent';
+
+  // Board
+  const el = document.getElementById('board');
+  el.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+
+    if (gs.classical[i]) {
+      const s = gs.classical[i].toLowerCase();
+      cell.classList.add('cls-' + s, 'no-click');
+      cell.innerHTML = `<div class="cls-sym s${s}">${gs.classical[i]}</div>`;
+      if (gs.winLine && gs.winLine.includes(i)) cell.classList.add('win-cell');
+    } else {
+      const marks = gs.board[i] || [];
+      if (marks.length) {
+        const wrap = document.createElement('div');
+        wrap.className = 'sup-wrap';
+        marks.forEach(m => {
+          const sp = document.createElement('span');
+          sp.className = 'qm qm' + m.sym.toLowerCase();
+          sp.textContent = m.sym + m.moveNum;
+          wrap.appendChild(sp);
+        });
+        cell.appendChild(wrap);
+      }
+
+      if (gs.phase === 'collapse' && gs.collapseInfo && gs.collapseInfo.cells.includes(i)) {
+        cell.classList.add('collapse-target');
+        if (gs.collapseInfo.chooser === mySymbol) {
+          cell.addEventListener('click', () => sendCollapse(i));
+        } else {
+          cell.classList.add('no-click');
+        }
+      } else if (gs.phase === 'placing' && gs.currentTurn === mySymbol && !gs.winner) {
+        if (pendingCells.includes(i)) cell.classList.add('sel-' + mySymbol.toLowerCase());
+        cell.addEventListener('click', () => cellClick(i));
+      } else {
+        cell.classList.add('no-click');
+      }
+    }
+    el.appendChild(cell);
+  }
+
+  // Status
+  if (gs.winner) return;
+  if (gs.phase === 'placing') {
+    if (gs.currentTurn === mySymbol) {
+      const rem = 2 - pendingCells.length;
+      setLog(rem === 2
+        ? `Your turn. <span class="hi">Select 2 cells</span> for your quantum move.`
+        : `<span class="hi">Select 1 more cell</span> to complete your superposition.`);
+    } else {
+      setLog(`Waiting for <span class="hi">opponent</span> to move…`);
+    }
+  } else if (gs.phase === 'collapse' && gs.collapseInfo) {
+    document.getElementById('collapseBox').style.display = 'block';
+    if (gs.collapseInfo.chooser === mySymbol) {
+      document.getElementById('collapseMsg').textContent =
+        `A cycle formed! Click a glowing cell to collapse move #${gs.collapseInfo.moveNum}.`;
+      setLog(`⚡ <span class="go">You choose where move #${gs.collapseInfo.moveNum} collapses.</span>`);
+    } else {
+      document.getElementById('collapseMsg').textContent = `Opponent is choosing the collapse…`;
+      setLog(`⚡ <span class="go">Opponent is choosing the collapse point.</span>`);
+    }
+  }
+}
+
+function cellClick(i) {
+  if (!gs || gs.phase !== 'placing' || gs.currentTurn !== mySymbol || gs.winner) return;
+  if (gs.classical[i] !== null) return;
+  const idx = pendingCells.indexOf(i);
+  if (idx !== -1) { pendingCells.splice(idx, 1); renderAll(); return; }
+  if (pendingCells.length >= 2) return;
+  pendingCells.push(i);
+  if (pendingCells.length === 2) {
+    send({ type: 'move', cells: [...pendingCells] });
+    pendingCells = [];
+  } else {
+    renderAll();
+  }
+}
+
+function sendCollapse(i) {
+  if (!gs || gs.phase !== 'collapse' || gs.collapseInfo.chooser !== mySymbol) return;
+  send({ type: 'collapse', cell: i });
+}
+
+function sendReset() {
+  send({ type: 'reset' });
+  document.getElementById('winOverlay').classList.remove('show');
+}
+
+function showWin(sym) {
+  renderAll();
+  const card = document.getElementById('winCard');
+  const ov   = document.getElementById('winOverlay');
+  if (sym === 'draw') {
+    card.className = 'win-card wc-d';
+    document.getElementById('winSym').textContent   = '≈';
+    document.getElementById('winTitle').textContent = 'QUANTUM DRAW';
+    document.getElementById('winSub').textContent   = 'The wave functions cancelled out.';
+  } else {
+    const me = sym === mySymbol;
+    card.className = 'win-card wc-' + sym.toLowerCase();
+    document.getElementById('winSym').textContent   = sym;
+    document.getElementById('winTitle').textContent = me ? 'YOU WIN!' : 'YOU LOSE';
+    document.getElementById('winSub').textContent   = me
+      ? 'Your quantum strategy prevailed!'
+      : 'The superposition collapsed against you.';
+  }
+  ov.classList.add('show');
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function setLog(html) { document.getElementById('log').innerHTML = html; }
+function setBadge(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'badge' + (cls ? ' ' + cls : '');
+}
+function goLobby() {
+  document.getElementById('winOverlay').classList.remove('show');
+  document.getElementById('collapseBox').style.display = 'none';
+  if (ws) { ws.onclose = null; try { ws.close(); } catch(e){} ws = null; }
+  gs = null; mySymbol = null; isHost = false; pendingCells = [];
+  setBadge('lobbyBadge', 'READY TO PLAY', '');
+  hideJoin();
+  showScreen('lobbyScreen');
+}
+</script>
+</body>
+</html>
