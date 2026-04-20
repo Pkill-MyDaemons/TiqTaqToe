@@ -208,12 +208,15 @@ def _collapse_cell(state: dict, idx: int, sym: str, move_num: int):
             state["board"][partner] = [
                 m for m in state["board"][partner] if m["moveNum"] != move_num
             ]
+        state["entanglements"].remove(ent)
 
 
 def detect_cycle(state: dict) -> Optional[dict]:
     adj: dict[int, list] = {}
     for ent in state["entanglements"]:
         a, b = ent["cells"]
+        if state["classical"][a] is not None or state["classical"][b] is not None:
+            continue
         adj.setdefault(a, []).append({"cell": b, "moveNum": ent["moveNum"]})
         adj.setdefault(b, []).append({"cell": a, "moveNum": ent["moveNum"]})
 
