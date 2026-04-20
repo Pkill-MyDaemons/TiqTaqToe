@@ -39,7 +39,11 @@ async def ws_endpoint(websocket: WebSocket):
 
     try:
         async for raw in websocket.iter_text():
-            msg = json.loads(raw)
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                await safe_send(websocket, {"type": "error", "msg": "Invalid message."})
+                continue
             t = msg.get("type")
 
             # HOST: create a new room
@@ -66,7 +70,7 @@ async def ws_endpoint(websocket: WebSocket):
 
             # HOST: start the game
             elif t == "start":
-                if not code or code not in rooms:
+                if role != "host" or not code or code not in rooms:
                     continue
                 room = rooms[code]
                 state = init_state()
@@ -79,9 +83,15 @@ async def ws_endpoint(websocket: WebSocket):
                 if not code or code not in rooms:
                     continue
                 room = rooms[code]
-                if not room["state"]:
+                state = room["state"]
+                if not state or state.get("winner") or state.get("phase") != "placing":
                     continue
-                result = apply_move(room["state"], msg["cells"])
+                player_sym = "X" if role == "host" else "O"
+                if state["currentTurn"] != player_sym:
+                    continue
+                result = apply_move(state, msg.get("cells"))
+                if result is None:
+                    continue
                 room["state"] = result["state"]
                 payload = {"type": "state", "state": result["state"], "event": result["event"]}
                 await safe_send(room["host"], payload)
@@ -92,17 +102,23 @@ async def ws_endpoint(websocket: WebSocket):
                 if not code or code not in rooms:
                     continue
                 room = rooms[code]
-                if not room["state"]:
+                state = room["state"]
+                if not state or state.get("phase") != "collapse" or not state.get("collapseInfo"):
                     continue
-                result = apply_collapse(room["state"], msg["cell"])
+                player_sym = "X" if role == "host" else "O"
+                if state["collapseInfo"]["chooser"] != player_sym:
+                    continue
+                result = apply_collapse(state, msg.get("cell"))
+                if result is None:
+                    continue
                 room["state"] = result["state"]
                 payload = {"type": "state", "state": result["state"], "event": result["event"]}
                 await safe_send(room["host"], payload)
                 await safe_send(room["guest"], payload)
 
-            # RESET: play again
+            # RESET: play again (host only)
             elif t == "reset":
-                if not code or code not in rooms:
+                if role != "host" or not code or code not in rooms:
                     continue
                 room = rooms[code]
                 state = init_state()
@@ -140,8 +156,19 @@ def init_state() -> dict:
     }
 
 
-def apply_move(state: dict, cells: list) -> dict:
+def apply_move(state: dict, cells) -> Optional[dict]:
+    if not isinstance(cells, list) or len(cells) != 2:
+        return None
     c1, c2 = cells
+    if not isinstance(c1, int) or not isinstance(c2, int):
+        return None
+    if not (0 <= c1 <= 8) or not (0 <= c2 <= 8):
+        return None
+    if c1 == c2:
+        return None
+    if state["classical"][c1] is not None or state["classical"][c2] is not None:
+        return None
+
     sym = state["currentTurn"]
     mn = state["moveNum"]
 
@@ -168,15 +195,17 @@ def apply_move(state: dict, cells: list) -> dict:
     return {"state": state, "event": event}
 
 
-def apply_collapse(state: dict, cell_index: int) -> dict:
+def apply_collapse(state: dict, cell_index) -> Optional[dict]:
+    if not isinstance(cell_index, int) or not (0 <= cell_index <= 8):
+        return None
     info = state["collapseInfo"]
+    if cell_index not in info["cells"]:
+        return None
     mn = info["moveNum"]
 
     mark = next((m for m in state["board"][cell_index] if m["moveNum"] == mn), None)
-    if not mark and state["board"][cell_index]:
-        mark = state["board"][cell_index][0]
     if not mark:
-        return {"state": state, "event": "error"}
+        return None
 
     _collapse_cell(state, cell_index, mark["sym"], mark["moveNum"])
 
